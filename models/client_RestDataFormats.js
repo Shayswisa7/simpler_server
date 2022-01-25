@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const RestDataFormatsSechema = mongoose.Schema({
-  type: { type: String, require: true },
+  type: {
+    type: String,
+    require: [true, 'Please anter an type of format!'],
+  },
   obj: {},
 });
 

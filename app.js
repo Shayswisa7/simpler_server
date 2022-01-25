@@ -31,9 +31,10 @@ let RestDataFormats = require('./models/client_RestDataFormats');
 let Users = require('./models/client_Users');
 
 //Bring in models rest_manager.
-let Employee = require('./models/rest_Employees');
-let AllOrders = require('./models/rest_allOrders');
+let Employee = require('./models/rest_EmployeeUser');
+let AllOrders = require('./models/rest_AllOrders');
 const { send } = require('process');
+const { connect } = require('http2');
 
 //Check connection.
 db.once('open', () => {
@@ -152,46 +153,20 @@ app.post('/', (req, res) => {
 {
   //Get connection.
   //Rest manager & client post get connection(user). check password
+
+  const connectionByPhoneNumber = async (phoneNumber, password) => {
+    const user = await Users.findOne({ phoneNumber: phoneNumber });
+    const result = await user.comparePassword(password);
+    console.log(result);
+  };
+
   app.post('/UserConnection', (req, res) => {
-    if (req.body.type === 'user')
-      Users.aggregate(
-        { $match: { phoneNumber: req.body.user.phoneNumber } },
-        (err, user) => {
-          if (err) {
-            console.log('User not exist!');
-          } else {
-            if (user[0].password === req.body.password)
-              res.send({
-                user: user[0],
-                connect: true,
-              });
-            else
-              res.send({
-                connect: false,
-              });
-          }
-        }
-      );
-    else if (req.body.type === 'employee')
-      Employee.aggregate(
-        { $match: { id: req.body.user.phoneNumber } },
-        (err, employee) => {
-          if (err) {
-            console.log('error');
-          } else {
-            if (employee[0].password === req.body.password)
-              res.send({
-                employee: employee[0],
-                connect: true,
-              });
-            else
-              res.send({
-                connect: false,
-              });
-          }
-        }
-      );
-    else res.send('Not exist!');
+    if (req.body.type === 'user') {
+      if (!req.body.phoneNumber) {
+        connectionByPhoneNumber(req.body.phoneNumber, req.body.password);
+      }
+    } else if (req.body.type === 'employee') {
+    } else res.send('Not exist!');
   });
 
   //Create user.

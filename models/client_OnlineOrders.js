@@ -2,20 +2,32 @@ const mongoose = require('mongoose');
 
 // Serving Schema
 const fullOrderSchema = mongoose.Schema({
-  id_phoneNumber: { type: String, required: true },
-  orders: [
-    {
-      name: { type: String, required: true },
-      salads: { type: Object, require: true },
-      sauces: { type: Object, require: true },
-      breads: { type: Object, require: true },
-      extras: { type: Object, require: true },
-      meat: { type: Object, require: true },
-      drink: { type: Object, require: true },
-    },
-  ],
-  orderTime: { type: Date, required: true },
-  price: { type: Array, require: true },
+  fullName: {
+    type: String,
+    required: [true, 'Please anter an full name!'],
+  },
+  id_phoneNumber: {
+    type: String,
+    required: [true, 'Please anter an phone number!'],
+  },
+  orders: {
+    type: Array,
+    required: [true, 'Please anter an orders!'],
+  },
+  shipping: {
+    type: Object,
+    require: [true, 'Please anter an shipping!'],
+    default: [],
+  },
+  orderTime: {
+    type: Date,
+    required: [true, 'Please anter an order time!'],
+    default: Date.now(),
+  },
+  price: {
+    type: Array,
+    require: [true, 'Please anter an price!'],
+  },
 });
 
 const OnlineOrders = (module.exports = mongoose.model(
