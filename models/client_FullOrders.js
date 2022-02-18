@@ -19,6 +19,10 @@ const fullOrderSchema = mongoose.Schema({
     require: [true, 'Please anter an shipping!'],
     default: [],
   },
+  cash: {
+    type: Object,
+    require: [true, 'Please anter if piad in cash!'],
+  },
   orderTime: {
     type: Date,
     required: [true, 'Please anter an order time!'],
@@ -30,8 +34,8 @@ const fullOrderSchema = mongoose.Schema({
   },
 });
 
-const OnlineOrders = (module.exports = mongoose.model(
-  'online_orders',
+const FullOrders = (module.exports = mongoose.model(
+  'full_orders',
   fullOrderSchema
 ));
 

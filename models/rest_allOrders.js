@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 const allOrdersSche = mongoose.Schema({
   details: {
+    userPhoneNumber: {
+      type: String,
+      require: [true, 'Please anter a phone number of user!'],
+    },
     itemsAndPrices: [
       {
         drink: {
@@ -34,29 +38,43 @@ const allOrdersSche = mongoose.Schema({
       fullDate: {
         type: Date,
         required: [true, 'Please anter an full date!'],
-        default: Date.now(),
+        default: Date.now().toString(),
       },
       orderTime: {
-        type: Date,
+        type: Object,
         required: [true, 'Please anter an order time!'],
       },
       completeTime: {
         type: Date,
         required: [true, 'Please anter an complete time!'],
-        default: Date.now(),
+        default: Date.now().toString(),
+      },
+      shipping: {
+        type: Object,
+        require: [true, 'Please anter if the order shipping!'],
+      },
+      cash: {
+        type: Object,
+        require: [true, 'Please anter if the order paid in cash!'],
       },
     },
-  },
-  employee: {
-    fullName: {
-      type: String,
-      required: [true, 'Please anter an full name!'],
-    },
-    id: {
-      type: Number,
-      required: [true, 'Please anter an id!'],
+    employees: {
+      leader: {
+        type: Object,
+        required: [
+          true,
+          'Please anter an object that iclude name & id of shift Manager!',
+        ],
+      },
+      employeesID: {
+        type: Array,
+        required: [true, 'Please anter an id!'],
+      },
     },
   },
 });
 
-const AllOrders = (module.exports = mongoose.model('allOrders', allOrdersSche));
+const AllOrders = (module.exports = mongoose.model(
+  'all_orders',
+  allOrdersSche
+));

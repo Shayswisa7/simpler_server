@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const { isEmail } = require('validator');
-const userSchema = new mongoose.Schema({
+const clientUserSchema = new mongoose.Schema({
   firstName: {
     type: String,
     required: [true, 'Please anter an first name!'],
@@ -28,35 +28,27 @@ const userSchema = new mongoose.Schema({
   saveOrderList: {
     type: Array,
     required: [true, 'Please anter an phone number!'],
-    unique: [true, 'Please anter an phone number that not in the system!'],
     default: [],
   },
   friedsList: {
     type: Array,
     required: [true, 'Please anter an phone number!'],
-    unique: [true, 'Please anter an phone number that not in the system!'],
     default: [],
   },
   avatar: Buffer,
 });
-//לסדר את פר
-userSchema.pre('save', function (next) {
+clientUserSchema.pre('save', function (next) {
   console.log('_____________');
   if (this.isModified('password')) {
-    bcrypt.hash(this.password, 8, (err, hash) => {
+    bcrypt.hash(this.password, 12, (err, hash) => {
       if (err) return next(err);
       this.password = hash;
+      console.log(hash);
       next();
     });
   }
 });
-
-userSchema.pre('save', true, (next) => {
-  console.log('_______________');
-  next();
-});
-
-userSchema.methods.comparePassword = async function (password) {
+clientUserSchema.methods.comparePassword = async function (password) {
   if (!password) throw new Error('Password is mission, can not compare!');
 
   try {
@@ -66,4 +58,7 @@ userSchema.methods.comparePassword = async function (password) {
     console.log('Error while comparing password!');
   }
 };
-const Users = (module.exports = mongoose.model('users', userSchema));
+const ClientUsers = (module.exports = mongoose.model(
+  'client_users',
+  clientUserSchema
+));

@@ -4,6 +4,10 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
 var cors = require('cors');
+const userAndEmployeeRoute = require('./Routes/UsersAndEmployees');
+const restDataFormatsRoute = require('./Routes/restDataFormats');
+const onlineOrdersRoute = require('./Routes/onlineOrders');
+const errorRoute = require('./Routes/error');
 //Creating a database connection.
 mongoose.connect('mongodb://localhost/localdb');
 let db = mongoose.connection;
@@ -12,7 +16,13 @@ let db = mongoose.connection;
 const app = express();
 //morgan for debug.
 app.use(morgan('dev'));
-
+/*
+//Routes
+app.use('/employeeUserRoute', userAndEmployeeRoute);
+app.use('/RestDataFormats_Obj', restDataFormatsRoute);
+app.use('/FullOrders', onlineOrdersRoute);
+app.use('/error', errorRoute);
+*/
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
@@ -26,10 +36,11 @@ app.use((req, res, next) => {
   next();
 });
 //Bring in models client.
-let OnlineOrders = require('./models/client_OnlineOrders');
+let FullOrders = require('./models/client_FullOrders');
+const AllFullOrdersData = require('./models/all_fullOrders_Data');
 let RestDataFormats = require('./models/client_RestDataFormats');
 let Users = require('./models/client_Users');
-
+let BusinessTemplatesData = require('./models/businessTemplatesData');
 //Bring in models rest_manager.
 let Employee = require('./models/rest_EmployeeUser');
 let AllOrders = require('./models/rest_AllOrders');
@@ -67,16 +78,27 @@ app.post('/', (req, res) => {
   //Get data formats.
   //client post get data formts by type.
   app.post('/RestDataFormats_Obj', (req, res) => {
-    RestDataFormats.aggregate(
-      [{ $match: { type: req.body.type } }],
-      (err, ordersList) => {
-        if (err) {
-          console.log('error');
-        } else {
-          res.send(ordersList[0]);
+    console.log(req.body.type);
+    if (req.body.type !== 'All')
+      RestDataFormats.aggregate(
+        [{ $match: { type: req.body.type } }],
+        (err, allFormats) => {
+          if (err) {
+            console.log('error');
+          } else {
+            res.send(allFormats[0]);
+          }
         }
-      }
-    );
+      );
+    else {
+      RestDataFormats.find({}, (err, allFormats) => {
+        if (err) {
+          res.send(err);
+        } else {
+          res.send(allFormats);
+        }
+      });
+    }
   });
 
   //Edit data format.
@@ -154,45 +176,73 @@ app.post('/', (req, res) => {
   //Get connection.
   //Rest manager & client post get connection(user). check password
 
-  const connectionByPhoneNumber = async (phoneNumber, password) => {
-    const user = await Users.findOne({ phoneNumber: phoneNumber });
+  const connectionByUserPhoneNumber = async (phoneNumber, password) => {
+    let user = await Users.findOne({ phoneNumber: phoneNumber });
+    if (user === null) user = await Users.findOne({ email: phoneNumber });
     const result = await user.comparePassword(password);
-    console.log(result);
+    return result ? user : result;
   };
-
+  const connectionByEmployeePhoneNumberOrID = async (phoneNumber, password) => {
+    let employee = await Employee.findOne({ phoneNumber: phoneNumber });
+    if (employee === null)
+      employee = await Employee.findOne({ id: phoneNumber });
+    const result = await employee.comparePassword(password);
+    return result ? employee : result;
+  };
   app.post('/UserConnection', (req, res) => {
-    if (req.body.type === 'user') {
-      if (!req.body.phoneNumber) {
-        connectionByPhoneNumber(req.body.phoneNumber, req.body.password);
+    if (req.body.type === 'User') {
+      let result = connectionByUserPhoneNumber(
+        req.body.phoneNumber,
+        req.body.password
+      );
+      res.send(result);
+      if (result) {
+        result
+          .then((response) => {
+            res.send(response);
+          })
+          .catch((err) => res.status(500).send(err));
       }
-    } else if (req.body.type === 'employee') {
-    } else res.send('Not exist!');
+    } else if (req.body.type === 'Employee') {
+      let result = connectionByEmployeePhoneNumberOrID(
+        req.body.obj.id,
+        req.body.obj.password
+      );
+      if (result) {
+        result.then((response) => {
+          res.send(response);
+        });
+      } else res.send(result);
+    } else {
+      console.log('failed');
+    }
   });
 
   //Create user.
   //Rest manager & client post creating user.
   app.post('/CreateUser', (req, res) => {
-    if (req.body.type === 'user')
-      Users.insertMany(req.body.user, (err, newUser) => {
+    if (req.body.type === 'User')
+      Users.create(req.body.user, (err, newUser) => {
         if (err) {
-          res.send('user alreagy exist!');
+          res.send('user already exist! or the mail now valid!');
         } else {
           res.send(newUser[0]);
         }
       });
-    else if (req.body.type === 'employee')
-      Employee.insertMany(req.body.user, (err, newEmployee) => {
+    else if (req.body.type === 'Employee') {
+      Employee.create(req.body.user, (err, newEmployee) => {
         if (err) {
-          res.send('user alreagy exist!');
+          res.send(err.keyValue);
         } else {
           res.send(newEmployee[0]);
         }
       });
+    }
   });
   //Edit user.
   //Rest manager & client post editing user by (client)phone number/(employee)id.
   app.post('/EditUser', (req, res) => {
-    if (req.body.type === 'user')
+    if (req.body.type === 'User')
       Users.aggregate(
         [{ $match: { phoneNumber: req.body.user.phoneNumber } }],
         (err, user) => {
@@ -212,7 +262,7 @@ app.post('/', (req, res) => {
           } else res.send('user not exist!');
         }
       );
-    else if (req.body.type === 'employee')
+    else if (req.body.type === 'Employee')
       Employee.aggregate(
         [{ $match: { id: req.body.user.id } }],
         (err, employee) => {
@@ -238,7 +288,7 @@ app.post('/', (req, res) => {
   //Delete user.
   //rest manager & client post deleting user by (client)phone number/(employee)id.
   app.post('/DeleteUser', (req, res) => {
-    if (req.body.type === 'user')
+    if (req.body.type === 'User')
       Users.aggregate(
         [{ $match: { phoneNumber: req.body.user.phoneNumber } }],
         (err, user) => {
@@ -254,7 +304,7 @@ app.post('/', (req, res) => {
           } else res.send('user not exist!');
         }
       );
-    else if (req.body.type === 'employee')
+    else if (req.body.type === 'Employee')
       Employee.aggregate({ id: req.body.user.id }, (err, employee) => {
         if (err) console.log('err');
         else if (employee.length) {
@@ -271,33 +321,107 @@ app.post('/', (req, res) => {
       });
   });
 }
+//add work time object
+//for employee
+app.post('/LogOutEmployee', (req, res) => {
+  console.log('______________');
+  Employee.updateOne(
+    { id: req.body.obj.id },
+    { $push: { workTimes: req.body.obj.workTimes } },
+    (err) => {
+      if (err) {
+        res.send('faild');
+      } else {
+        res.send('success');
+      }
+    }
+  );
+});
+
 //                                     Online Orders
 //___________________________________________________________________________________________
-
 //Insert online orders.
 app.post('/AddOnlineOrders', (req, res) => {
-  OnlineOrders.insertMany(req.body, (err) => {
+  FullOrders.create(req.body, (err) => {
     if (err) {
       res.send('somthing rowng!');
-    } else res.send('success!');
+    } else {
+      AllFullOrdersData.create(req.body, (err) => {
+        if (err) {
+          res.send('err');
+        } else {
+          console.log('success!');
+        }
+      });
+      res.send('success!');
+    }
   });
 });
 
 //Get online orders.
 app.post('/GetOnlineOrders', (req, res) => {
-  OnlineOrders.find({}, (err, onlineOrders) => {
+  FullOrders.find({}, (err, onlineOrders) => {
     if (err) {
       res.send('somthing rowng!');
     } else if (onlineOrders[0].length)
       //list online Orders is empty?
       res.send('list online Orders is empty!');
     else {
-      OnlineOrders.deleteMany(onlineOrders[0], (err, arr) => {
+      FullOrders.deleteMany(onlineOrders[0], (err, arr) => {
         //
         if (err) {
           res.send('not cleaing');
         } else res.send(onlineOrders[0]);
       });
+    }
+  });
+});
+
+//post All full orders.
+app.post('/GetAll_allFullOrdersData', (req, res) => {
+  AllFullOrdersData.find({}, (err, allFullOrdersData) => {
+    if (err) {
+      console.log('fails');
+    } else {
+      res.send(allFullOrdersData);
+    }
+  });
+});
+
+//                                   Business
+//_________________________________________________________________________________
+
+//Create Business item
+app.post('/CreateBusinessItem', (req, res) => {
+  BusinessTemplatesData.create(req.body.obj, (err, business) => {
+    if (err) res.send(JSON.stringify(err));
+    else {
+      console.log(business);
+      res.send('success!');
+    }
+  });
+});
+
+//Get Business List
+app.get('/GetBusinessList', (req, res) => {
+  BusinessTemplatesData.find({}, (err, allBusiness) => {
+    if (err) {
+      res.send(JSON.stringify(err));
+    } else {
+      res.send(allBusiness);
+    }
+  });
+});
+
+//                                   All Orders
+//_________________________________________________________________________________
+
+app.post('/CreateAllOrderItem', (req, res) => {
+  AllOrders.create(req.body, (err) => {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log('success!');
     }
   });
 });
@@ -309,8 +433,8 @@ app.use((req, res, next) => {
   error.status = 404;
   next(error);
 });
-
 app.use((error, req, res, next) => {
+  console.log(req.body);
   res.status(error.status || 500);
   res.json({
     error: {
@@ -318,6 +442,5 @@ app.use((error, req, res, next) => {
     },
   });
 });
-
 // Start Server
 app.listen(3001, () => console.log('server started on port 3001...'));
