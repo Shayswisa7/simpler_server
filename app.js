@@ -9,9 +9,10 @@ const restDataFormatsRoute = require('./Routes/restDataFormats');
 const onlineOrdersRoute = require('./Routes/onlineOrders');
 const errorRoute = require('./Routes/error');
 //Creating a database connection.
-mongoose.connect('mongodb://localhost/localdb');
+mongoose.set('strictQuery', true);
+mongoose.connect('mongodb://127.0.0.1:27017/localdb');
+//mongoose.connect('mongodb://localhost/localdb');
 let db = mongoose.connection;
-
 //Init App
 const app = express();
 //morgan for debug.
@@ -30,7 +31,7 @@ app.use((req, res, next) => {
     'Origin, X-Requested-With, Content-Type, Accept, Authoriztion'
   );
   if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'PUT, POST, PATCH, DELETE, GET');
+    res.header('Access-Control-Allow-Methods', 'PUT, POST, FETCH, DELETE, GET');
     return res.status(200).json({});
   }
   next();
@@ -46,6 +47,7 @@ let Employee = require('./models/rest_EmployeeUser');
 let AllOrders = require('./models/rest_AllOrders');
 const { send } = require('process');
 const { connect } = require('http2');
+const { log } = require('console');
 
 //Check connection.
 db.once('open', () => {
@@ -68,7 +70,7 @@ app.use(
   })
 );
 
-app.post('/', (req, res) => {
+app.get('/', (req, res) => {
   res.send('POST request to the homepage');
 });
 
@@ -78,14 +80,15 @@ app.post('/', (req, res) => {
   //Get data formats.
   //client post get data formts by type.
   app.post('/RestDataFormats_Obj', (req, res) => {
-    console.log(req.body.type);
+    console.log('81' + req.body.type);
     if (req.body.type !== 'All')
       RestDataFormats.aggregate(
         [{ $match: { type: req.body.type } }],
         (err, allFormats) => {
           if (err) {
-            console.log('error');
+            console.log('81' + 'error');
           } else {
+            console.log('81' + allFormats[0]);
             res.send(allFormats[0]);
           }
         }
@@ -192,10 +195,9 @@ app.post('/', (req, res) => {
   app.post('/UserConnection', (req, res) => {
     if (req.body.type === 'User') {
       let result = connectionByUserPhoneNumber(
-        req.body.phoneNumber,
-        req.body.password
+        req.body.obj.id,
+        req.body.obj.password
       );
-      res.send(result);
       if (result) {
         result
           .then((response) => {
@@ -221,15 +223,17 @@ app.post('/', (req, res) => {
   //Create user.
   //Rest manager & client post creating user.
   app.post('/CreateUser', (req, res) => {
-    if (req.body.type === 'User')
+    if (req.body.type === 'User') {
       Users.create(req.body.user, (err, newUser) => {
         if (err) {
-          res.send('user already exist! or the mail now valid!');
+          console.log('|_________________', err.keyValue);
+          res.send(err.keyValue);
         } else {
+          console.log('|_________________', newUser[0]);
           res.send(newUser[0]);
         }
       });
-    else if (req.body.type === 'Employee') {
+    } else if (req.body.type === 'Employee') {
       Employee.create(req.body.user, (err, newEmployee) => {
         if (err) {
           res.send(err.keyValue);
@@ -324,6 +328,22 @@ app.post('/', (req, res) => {
 //add work time object
 //for employee
 app.post('/LogOutEmployee', (req, res) => {
+  console.log('______________');
+  Employee.updateOne(
+    { id: req.body.obj.id },
+    { $push: { workTimes: req.body.obj.workTimes } },
+    (err) => {
+      if (err) {
+        res.send('error');
+      } else {
+        res.send('success');
+      }
+    }
+  );
+});
+//
+//for client
+app.post('/LogOutClient', (req, res) => {
   console.log('______________');
   Employee.updateOne(
     { id: req.body.obj.id },
@@ -443,4 +463,4 @@ app.use((error, req, res, next) => {
   });
 });
 // Start Server
-app.listen(3001, () => console.log('server started on port 3001...'));
+app.listen(3001, () => console.log('server run on port 3001...'));
